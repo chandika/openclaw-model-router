@@ -1,7 +1,7 @@
 ---
 name: model-router
 description: Self-aware multi-provider model routing for OpenClaw. Auto-detects your available models, recommends the best routing mode, and adapts per task. Claude, Gemini, GPT, DeepSeek — benchmarks are routing tables, not leaderboards.
-version: 2.1.0
+version: 2.2.0
 homepage: https://github.com/chandika/openclaw-model-router
 metadata: {"clawdbot":{"emoji":"🧭"}}
 ---
@@ -9,6 +9,13 @@ metadata: {"clawdbot":{"emoji":"🧭"}}
 # Model Router for OpenClaw
 
 Route the right model to the right job. Auto-detects what you have, tells you what to use, adapts when you say "work harder" or "save money."
+
+## Security & Privacy
+
+- **This skill does NOT read, store, or transmit API keys or credentials.** It only reads provider *names* and model IDs from your gateway config to determine what's available.
+- **No automatic scanning.** All model detection and web searches are user-triggered only. The skill never runs on load or heartbeat unless you explicitly ask.
+- **Web searches are used** to fetch public benchmark data and pricing from model card pages when you add a new provider. This is outbound network activity you should expect.
+- **Local state:** The skill writes `model-registry.json` to your workspace (benchmark scores, pricing, routing rules). No secrets are stored in this file.
 
 ## Step 0: Model Registry (Self-Learning)
 
@@ -53,7 +60,7 @@ This skill maintains a **living model registry** at `model-registry.json` in the
 
 ### New Model Detection Flow
 
-**When to scan:** On skill load, on heartbeat (if model-router is referenced in HEARTBEAT.md), or when user says "check for new models."
+**When to scan:** Only when the user explicitly asks (e.g., "check for new models," "scan models," "what models do I have"). Never on skill load. Never on heartbeat.
 
 **How it works:**
 
@@ -127,18 +134,12 @@ When a model is **removed** from config:
 
 ## Step 1: Detect What's Available
 
-When this skill is loaded, **immediately check** the user's OpenClaw config to determine which providers and models are available:
+When the user asks to check models or set up routing, check the OpenClaw config to determine which providers and models are available:
 
 1. Run `gateway config.get` or read `openclaw.json`
 2. Check `agents.defaults.model.primary` — what's the current main model?
 3. Check `agents.defaults.subagents.model` — what's the current subagent model?
-4. Check which providers have auth configured:
-   - Anthropic: Claude Max OAuth, `ANTHROPIC_API_KEY`, or setup-token
-   - Google: `GEMINI_API_KEY`, Vertex ADC, or Antigravity OAuth
-   - OpenAI: `OPENAI_API_KEY` or Codex OAuth
-   - xAI: `XAI_API_KEY`
-   - OpenRouter: `OPENROUTER_API_KEY` (gives access to DeepSeek, Llama, etc.)
-   - Any custom providers in `models.providers`
+4. Check which providers are configured (by provider name and model ID only — do not read or inspect API keys, tokens, or auth credentials)
 
 5. Report to user: "You have [X, Y, Z] available. Currently running [model] main / [model] subagents. Recommended mode: [mode]. Want me to apply it?"
 
@@ -337,19 +338,11 @@ Each row is a routing decision, not a ranking. A 2-point gap is noise — route 
 
 ---
 
-## Provider Detection Cheat Sheet
+## Provider Detection
 
-When checking what's available, look for:
+When checking what's available, use `gateway config.get` and look at the configured provider names and model IDs. **Do not read or inspect API keys, tokens, or auth credentials.** You only need to know *which providers are configured*, not how they authenticate.
 
-| Provider | Auth Signal | Env Var |
-|----------|-----------|---------|
-| Anthropic | OAuth token, setup-token, or API key | `ANTHROPIC_API_KEY` |
-| Google | API key or Vertex/Antigravity auth | `GEMINI_API_KEY`, `GOOGLE_API_KEY` |
-| OpenAI | API key or Codex OAuth | `OPENAI_API_KEY` |
-| xAI | API key | `XAI_API_KEY` |
-| OpenRouter | API key (unlocks DeepSeek, Llama, etc.) | `OPENROUTER_API_KEY` |
-
-Check `models.providers` in config for custom setups. Check auth profiles via `openclaw models list`.
+Check `models.providers` in config for custom setups.
 
 **Fallback logic:** If only Anthropic is available → recommend Performance mode. If Anthropic + Google → Balanced. If Google only → Economy. If everything → Balanced (best default).
 
@@ -379,16 +372,6 @@ Check `models.providers` in config for custom setups. Check auth profiles via `o
 - "Back to normal" → `/model default`
 
 ---
-
-## Heartbeat Integration
-
-To enable continuous model detection, add this to your `HEARTBEAT.md`:
-
-```
-- Model router: check for new/changed models in config (weekly)
-```
-
-The agent will scan on heartbeat, diff against the registry, and only notify you if something changed. No spam.
 
 ## Initial Registry Seed
 
