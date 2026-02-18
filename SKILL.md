@@ -57,6 +57,14 @@ Don't read them as "which model is better." Read them as a **routing table**. Ea
 - **Opus 4.6**: $15 input / $75 output per million tokens
 - **Sonnet is 5x cheaper** — but for Claude Pro/Max subscribers, the real win is speed and rate limits, not cost.
 
+## Prerequisites
+
+- **OpenClaw v2026.2.17 or later** — Sonnet 4.6 isn't in the model registry on older versions. Update first:
+  - Docker: `docker pull openclaw/openclaw:latest` then recreate your container
+  - Git install: `openclaw update`
+- **Claude Max or API key** — Sonnet 4.6 needs to be available on your auth token. Claude Max OAuth tokens got 4.6 support on Feb 18, 2026. If `anthropic/claude-sonnet-4-6` is rejected, update OpenClaw and re-auth.
+- Sonnet 4.5 works as a fallback if 4.6 isn't available yet on your plan.
+
 ## OpenClaw Setup
 
 ### Recommended: Opus Main + Sonnet Subagents
