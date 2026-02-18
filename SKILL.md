@@ -1,6 +1,6 @@
 ---
 name: model-router
-description: Intelligent model routing for OpenClaw. Route tasks to Sonnet 4.6 or Opus 4.6 based on complexity, saving cost without sacrificing quality.
+description: Intelligent model routing for OpenClaw. Route tasks to Sonnet 4.6 or Opus 4.6 based on task complexity — faster responses, fewer rate limits, and your Claude sub lasts longer.
 version: 1.0.0
 homepage: https://github.com/chandika/openclaw-model-router
 metadata: {"clawdbot":{"emoji":"🧭"}}
@@ -8,71 +8,67 @@ metadata: {"clawdbot":{"emoji":"🧭"}}
 
 # Model Router for OpenClaw
 
-Route tasks to the right Claude model automatically. Sonnet 4.6 handles 80% of tasks at 1/5th the cost of Opus. Opus handles the 20% that need deep reasoning.
+Route the right model to the right job. Sonnet 4.6 for the everyday work, Opus for the hard stuff.
 
-## Why
+## Why I Built This
 
-Sonnet 4.6 (released Feb 17, 2026) now approaches Opus-level performance on most tasks:
-- **SWE-bench Verified**: Sonnet 79.6% vs Opus 83.7%
-- **OSWorld**: Sonnet 72.5% vs Opus 66.3% (Sonnet WINS)
-- **GPQA Diamond**: Sonnet 89.9% vs Opus 91.3%
-- **ARC-AGI-2**: Sonnet 60.4% vs Opus 68.8%
-- **Terminal-Bench**: Sonnet 59.1% vs Opus 65.4%
-- **Pricing**: Sonnet $3/$15 vs Opus $15/$75 per million tokens (5x cheaper)
+My Claude subscription was teetering on usage limits. Sonnet 4.6 shipped with 1M context and near-parity with Opus on most tasks. Using the same expensive model for everything stopped making sense.
 
-Developers preferred Sonnet 4.6 over Opus 4.5 in 59% of head-to-head tests.
+So I asked OpenClaw to solve the problem itself — gave it the benchmarks, told it to figure out routing logic, and this skill is the result.
 
-## When to Use Opus
+## How to Read Benchmark Tables
 
-Opus 4.6 is worth the 5x cost premium ONLY for:
+Don't read them as "which model is better." Read them as a **routing table**. Each row tells you which model to assign to which job.
 
-1. **Deep codebase refactoring** — multi-file architectural changes requiring understanding of entire systems
-2. **Multi-agent coordination** — orchestrating complex workflows across multiple agents
-3. **Novel problem solving** — tasks requiring creative leaps, not pattern matching
-4. **High-stakes reasoning** — where "getting it just right" matters more than speed (legal analysis, financial modeling, security audits)
-5. **Very long multi-step plans** — 10+ step agent workflows where error compounding is a risk
+### Sonnet 4.6 Wins
 
-## When Sonnet 4.6 is Better (or Equal)
+| Benchmark | What It Measures | Sonnet 4.6 | Opus 4.6 |
+|-----------|-----------------|------------|----------|
+| OSWorld | Computer use / browser | **72.5%** | 66.3% |
+| Finance Agent v1.1 | Financial analysis | **63.3%** | 60.1% |
+| GDPval-AA Elo | Office tasks | **1633** | 1606 |
+| Pace Insurance | Computer use accuracy | **94%** | — |
 
-- **Code generation** — writing new code, tests, components
-- **Code review** — reading and analyzing existing code
-- **Content creation** — writing, editing, summarizing
-- **Data analysis** — parsing, transforming, extracting
-- **Research & search** — web searches, document analysis
-- **Routine agent tasks** — file operations, API calls, standard workflows
-- **Long-context work** — 1M token context window matches Opus
-- **Computer use / browser automation** — Sonnet actually scores HIGHER on OSWorld
+**→ Route to Sonnet:** Browser automation, file operations, research, drafts, scheduled jobs, computer use, financial analysis, office work.
 
-## OpenClaw Configuration
+### Opus 4.6 Wins
 
-### Option 1: Sonnet Default + Opus Fallback
-Set Sonnet 4.6 as primary, Opus as fallback for when you need it:
+| Benchmark | What It Measures | Sonnet 4.6 | Opus 4.6 |
+|-----------|-----------------|------------|----------|
+| Terminal-Bench 2.0 | Terminal coding | 59.1% | **65.4%** |
+| BrowseComp | Agentic search | 74.7% | **84.0%** |
+| ARC-AGI-2 | Novel problem-solving | 58.3% | **68.8%** |
+| GPQA Diamond | Graduate reasoning | 89.9% | **91.3%** |
+
+**→ Route to Opus:** Architecture decisions, deep debugging, complex multi-step planning, novel problems, hard search tasks.
+
+### Basically a Tie
+
+| Benchmark | What It Measures | Sonnet 4.6 | Opus 4.6 |
+|-----------|-----------------|------------|----------|
+| SWE-bench Verified | Agentic coding | 79.6% | 80.8% |
+| OfficeQA | Document QA | Match | Match |
+
+**→ Either works.** Default to Sonnet (faster, lower rate limit impact).
+
+## Pricing Context
+
+- **Sonnet 4.6**: $3 input / $15 output per million tokens
+- **Opus 4.6**: $15 input / $75 output per million tokens
+- **Sonnet is 5x cheaper** — but for Claude Pro/Max subscribers, the real win is speed and rate limits, not cost.
+
+## OpenClaw Setup
+
+### Recommended: Opus Main + Sonnet Subagents
+
+Keep Opus for your direct conversation (where you need the best reasoning). Route background agents, cron jobs, and spawned tasks to Sonnet.
+
+Add to your `openclaw.json`:
 
 ```json
 {
   "agents": {
     "defaults": {
-      "model": {
-        "primary": "anthropic/claude-sonnet-4-6",
-        "fallbacks": ["anthropic/claude-opus-4-6"]
-      }
-    }
-  }
-}
-```
-
-Then use `/model opus` in chat when you need deep reasoning, or `/model default` to switch back.
-
-### Option 2: Task-Based Routing via Subagents
-Keep Opus for main session (direct chat needs best reasoning), use Sonnet for subagents (background tasks, research, drafts):
-
-```json
-{
-  "agents": {
-    "defaults": {
-      "model": {
-        "primary": "anthropic/claude-opus-4-6"
-      },
       "subagents": {
         "model": "anthropic/claude-sonnet-4-6"
       }
@@ -81,53 +77,38 @@ Keep Opus for main session (direct chat needs best reasoning), use Sonnet for su
 }
 ```
 
-This is the recommended setup. Your direct conversation gets Opus-quality reasoning. Background tasks (spawned subagents) use Sonnet at 1/5th cost.
+Or ask your agent: "Set subagents to Sonnet 4.6"
 
-### Option 3: Cron + Heartbeat on Sonnet
-Periodic tasks (daily dashboard, heartbeat checks, scheduled jobs) don't need Opus:
+That's it. One config change and your agents start routing intelligently.
+
+### Alternative: Sonnet Default + Opus On-Demand
+
+If you're on a $20 Pro plan and want maximum stretch:
 
 ```json
 {
   "agents": {
     "defaults": {
       "model": {
-        "primary": "anthropic/claude-opus-4-6"
-      },
-      "subagents": {
-        "model": "anthropic/claude-sonnet-4-6"
-      },
-      "heartbeat": {
-        "model": "anthropic/claude-sonnet-4-6"
+        "primary": "anthropic/claude-sonnet-4-6"
       }
     }
   }
 }
 ```
 
-Cron jobs with `sessionTarget: "isolated"` will also use the subagent model.
-
-## Cost Comparison (Estimated)
-
-For a typical OpenClaw user doing ~50 interactions/day:
-
-| Setup | Monthly Est. | Savings |
-|-------|-------------|---------|
-| All Opus | ~$150-300 | baseline |
-| Opus main + Sonnet subagents | ~$80-150 | ~50% |
-| Sonnet default + Opus on-demand | ~$40-80 | ~70% |
-
-## Quick Apply
-
-To switch your OpenClaw to the recommended setup (Option 2), ask your agent:
-
-> "Set my main model to Opus 4.6 and subagents to Sonnet 4.6"
-
-Or apply the config patch directly via the gateway config tool.
+Then use `/model anthropic/claude-opus-4-6` when you need deep reasoning, `/model default` to switch back.
 
 ## The Meta Point
 
-The model routing question isn't "which model is better?" It's "which model is better *for this specific task at this specific cost*?"
+Skills and models are now good enough to be self-reliant on picking the right tool. If you give an agent a selection of models and a framework for choosing, it picks well.
 
-Sonnet 4.6 makes this question matter. Before, the gap between tiers was obvious. Now, 80% of what you'd use Opus for, Sonnet handles equally well — at 1/5th the price.
+Use the bigger model to pick the smaller models for the job. That's what this skill enables.
 
-The smartest AI teams in 2026 aren't using one model. They're routing intelligently.
+## Two Contexts
+
+**Production systems** (APIs, SaaS products): Run proper evals. Measure model fit per task with real data. No shortcuts.
+
+**Personal agent workflows** (OpenClaw, daily use): If benchmarks are within a few points, vibes are fine. Close enough is good enough.
+
+This skill is for the second case. For production, build your own eval suite.
